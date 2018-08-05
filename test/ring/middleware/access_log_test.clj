@@ -27,10 +27,18 @@
        (binding [*logger-factory* (test-factory ~enabled-level-set ~log-entry-sym)]
          ~@body))))
 
-(deftest wrap-access-log-test
+(deftest wrap-access-log-remote-ip-address-test
   (let [handler (wrap-access-log (fn [_] (ok))
                                  {:format "%a"})
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
       (is (= "localhost" @log-entry)))))
+
+(deftest wrap-access-log-request-method-test
+  (let [handler (wrap-access-log (fn [_] (ok))
+                                 {:format "%m"})
+        request (mock/request :get "/")]
+    (with-test-logging [#{:info} log-entry]
+      (handler request)
+      (is (= ":get" @log-entry)))))
