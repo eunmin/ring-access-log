@@ -1,9 +1,6 @@
 (ns ring.middleware.access-log
   (:require [clojure.tools.logging :as log]))
 
-(def patterns {"%a" :remote-addr
-               "%m" :request-method})
-
 (defn log [request response {log-format :format}]
   (log/info ((get patterns log-format) request)))
 

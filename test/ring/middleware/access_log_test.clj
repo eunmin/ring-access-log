@@ -1,6 +1,6 @@
 (ns ring.middleware.access-log-test
   (:require [clojure.test :refer :all]
-            [clojure.tools.logging.impl :as impl]
+            [clojure.tools.logging :refer [*logger-factory*]]
             [ring.middleware.access-log :refer :all]
             [ring.util.http-response :refer :all]
             [ring.mock.request :as mock]))
@@ -42,3 +42,11 @@
     (with-test-logging [#{:info} log-entry]
       (handler request)
       (is (= ":get" @log-entry)))))
+
+(deftest combine-pattern-test
+  (let [handler (wrap-access-log (fn [_] (ok))
+                                 {:format "%m %a"})
+        request (mock/request :get "/")]
+    (with-test-logging [#{:info} log-entry]
+      (handler request)
+      (is (= ":get localhost" @log-entry)))))
