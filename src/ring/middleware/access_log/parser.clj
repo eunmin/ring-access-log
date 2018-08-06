@@ -1,4 +1,5 @@
-(ns ring.middleware.access-log.parser)
+(ns ring.middleware.access-log.parser
+  (:require [clojure.string :refer [index-of]]))
 
 (def patterns {"a" [:request :remote-addr]
                "m" [:request :request-method]
@@ -10,45 +11,40 @@
 (defn end-tag? [c]
   (= c \space))
 
-(defn start-tag [r]
-  (update r :tag-started? (constantly true)))
-
-(defn end-tag [r]
-  (update r :tag-started? (constantly false)))
-
-(defn add-character [r c]
-  (update r :result #(str % c)))
-
 (defn tag->ks [tag]
   (get patterns tag))
 
 (defn tags->kss [tags]
   (map tag->ks tags))
 
-(defn append-to-tag-name [r c]
-  (let [last-idx (dec (count (:tags r)))]
+(defn update-last [v f]
+  (let [last-idx (dec (count v))]
     (if (neg? last-idx)
-      (update r :tags (fn [_] (vector (str c))))
-      (update-in r [:tags last-idx] #(str % c)))))
+      v
+      (update v last-idx #(f %)))))
 
-(defn init-tag [r]
-  (update r :tags #(conj % "")))
-
-(defn mark-tag-pos [r]
-  (update r :result #(str % \% \s)))
+(defn format-string? [c]
+  (#{\a \m \H} c))
 
 (defn parse [pattern]
-  (-> (reduce (fn [{:keys [tag-started?] :as r} c]
-                (cond
-                  (start-tag? c) (-> r init-tag start-tag)
-                  (and tag-started? (end-tag? c)) (-> r mark-tag-pos (add-character c) end-tag)
-                  tag-started? (append-to-tag-name r c)
-                  :else (add-character r c)))
-              {:tag-started? false
-               :format-string ""
-               :tags []}
-              pattern)
-      (update :tags tags->kss)))
+  (loop [pattern pattern
+         format-pattern ""
+         tags []]
+    (if (seq pattern)
+      (let [[c1 c2] pattern]
+        (cond
+          (and (= c1 \%) (= c2 \{))
+          (let [close-pos (index-of patterns "}")
+                format-string (get patterns (inc close-pos))]
+            (if (format-string? format-string)
+              (recur (nthrest pattern (+ 2 close-pos)) (str format-pattern "%s") (conj tags [(subs pattern 1 close-pos) (str format-string)]))))
+
+          (and (= c1 \%) (format-string? c2))
+          (recur (nthrest pattern 2) (str format-pattern "%s") (conj tags (str c2)))
+
+          :else
+          (recur (rest pattern) (str format-pattern c1) tags)))
+      [format-pattern tags])))
 
 (defn formatter [{:keys [format-string kss]}]
   (fn [request response options]

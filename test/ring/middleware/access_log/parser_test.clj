@@ -1,7 +1,8 @@
 (ns ring.middleware.access-log.parser-test
-  (:require [ring.middleware.access-log.parser :as sut]
-            [clojure.test :as t]))
+  (:require [ring.middleware.access-log.parser :refer :all]
+            [clojure.test :refer :all]))
 
 (deftest parser-test
   (testing ""
-    (is )))
+    (let [{:keys [format-string tags] :as r} (parse "%a")]
+      (is (= "%s" format-string)))))
