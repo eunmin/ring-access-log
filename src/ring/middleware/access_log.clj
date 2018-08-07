@@ -9,7 +9,7 @@
   ([handler]
    (wrap-access-log handler {}))
   ([handler {:keys [pattern] :as options}]
-   (let [formatter (parser/formatter (parse pattern))]
+   (let [formatter (parser/formatter (parser/parse pattern))]
      (fn
        ([request]
         (let [response (handler request)]
