@@ -1,6 +1,7 @@
 (ns ring.middleware.access-log-test
   (:require [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
+            [clojure.tools.logging.impl :as impl]
             [ring.middleware.access-log :refer :all]
             [ring.util.http-response :refer :all]
             [ring.mock.request :as mock]))
@@ -29,7 +30,7 @@
 
 (deftest wrap-access-log-remote-ip-address-test
   (let [handler (wrap-access-log (fn [_] (ok))
-                                 {:format "%a"})
+                                 {:pattern "%a"})
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
@@ -37,7 +38,7 @@
 
 (deftest wrap-access-log-request-method-test
   (let [handler (wrap-access-log (fn [_] (ok))
-                                 {:format "%m"})
+                                 {:pattern "%m"})
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
@@ -45,7 +46,7 @@
 
 (deftest combine-pattern-test
   (let [handler (wrap-access-log (fn [_] (ok))
-                                 {:format "%m %a"})
+                                 {:pattern "%m %a"})
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
