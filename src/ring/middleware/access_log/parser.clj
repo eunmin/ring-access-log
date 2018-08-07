@@ -1,18 +1,69 @@
 (ns ring.middleware.access-log.parser
-  (:require [clojure.string :refer [index-of]]))
+  (:require [clj-time.format :as f]
+            [clj-time.core :as t]
+            [clj-time.local :as l]))
 
-(def patterns {\a [:request :remote-addr]
-               \m [:request :request-method]
-               \H [:request :protocol]
-               \i [:request :headers]
-               \o [:response :headers]
-               \s [:response :status]})
+(let [fmt (f/formatter "d/M/Y:H:M:S Z")]
+  (f/unparse fmt (l/local-now)))
 
-(defn tag->ks [tag]
-  (get patterns tag))
-
-(defn tags->kss [tags]
-  (map tag->ks tags))
+(def patterns {;; Remote IP address
+               \a (fn [req _ _]
+                    (get req :remote-addr "-"))
+               ;; Local IP address
+               \A (constantly nil)
+               ;; Bytes sent, excluding HTTP headers, or '-' if zero
+               \b (constantly nil)
+               ;; Bytes sent, excluding HTTP headers
+               \B (constantly nil)
+               ;; Remote host name (or IP address if enableLookups for the connector is false)
+               \h (constantly nil)
+               ;; Request protocol
+               \H (fn [req _ _]
+                    (get req :protocol "-"))
+               ;; Remote logical username from identd (always returns '-')
+               \l (constantly nil)
+               ;; Request method
+               \m (fn [req _ _]
+                    (get req :request-method "-"))
+               ;; Local port on which this request was received. See also %{xxx}p below.
+               \p (fn [req _ _]
+                    (get req :server-port "-"))
+               ;; Query string (prepended with a '?' if it exists)
+               \q (fn [req _ _ ]
+                    (get req :query-string "-"))
+               ;; First line of the request (method and request URI)
+               \r (constantly nil)
+               ;; HTTP status code of the response
+               \s (fn [_ resp _]
+                    (get resp :status "-"))
+               ;; Date and time, in Common Log Format
+               \t (fn [_ _ _]
+                    (when-let [dt (l/to-local-date-time (l/local-now))]
+                      (f/unparse (f/formatter "dd/MM/Y:HH:MM:SS Z") dt)))
+               ;; Remote user that was authenticated (if any), else '-'
+               \u (constantly nil)
+               ;; Requested URL path
+               \U (fn [_ resp _]
+                    (get resp :uri "-"))
+               ;; Local server name
+               \v (constantly nil)
+               ;; Time taken to process the request, in millis
+               \D (constantly nil)
+               ;; Time taken to process the request, in seconds
+               \T (constantly nil)
+               ;; Current request thread name (can compare later with stacktraces)
+               \I (constantly nil)
+               ;; write value of incoming header with name xxx
+               \i (fn [req _ param]
+                    (get-in req [:headers param] "-"))
+               ;; write value of outgoing header with name xxx
+               \o (fn [_ resp param]
+                    (get-in resp [:headers param] "-"))
+               ;; write value of cookie with name xxx
+               \c (constantly nil)
+               ;; \r [] ;; write value of ServletRequest attribute with name xxx
+               ;; \s [] ;; write value of HttpSession attribute with name xxx
+               })
 
 (defn update-last [v f]
   (let [last-idx (dec (count v))]
@@ -59,12 +110,9 @@
 
 (defn formatter [[format-pattern tags]]
   (fn [request response options]
-    (let [kss (map (fn [{:keys [id param]}]
-                     (let [ks (get patterns id)]
-                       (if param
-                         (conj ks param)
-                         ks)))
-                   tags)]
+    (let [kss (map #(assoc % :resolver (get patterns (:id %))) tags)]
       (apply format
              format-pattern
-             (map #(get-in {:request request :response response} % "-") kss)))))
+             (map (fn [{:keys [resolver param]}]
+                    (resolver request response param))
+                  kss)))))
