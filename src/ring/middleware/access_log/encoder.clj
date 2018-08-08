@@ -1,30 +1,4 @@
-(ns ring.middleware.access-log.parser
-  (:require [clojure.string :refer [upper-case]]
-            [clj-time.format :as f]
-            [clj-time.core :as t]
-            [clj-time.local :as l]
-            [ring.middleware.access-log.resolver :refer :all])
-  (:import [java.net InetSocketAddress]))
-
-(def patterns {\a remote-ip-address
-               \b bytes-sent
-               \h remote-host-name
-               \H request-protocol
-               \l remote-logical-username
-               \m request-method
-               \p local-port
-               \q query-string
-               \r request-first-line
-               \s response-status-code
-               \t date-and-time
-               \u remote-user
-               \U request-url-path
-               \D ptime-millis
-               \T ptime-sec
-               \I current-thread-name
-               \i incoming-header
-               \o outgoing-header
-               \c cookie-value})
+(ns ring.middleware.access-log.encoder)
 
 (defn update-last [v f]
   (let [last-idx (dec (count v))]
@@ -32,10 +6,10 @@
       v
       (update v last-idx #(f %)))))
 
-(defn pattern-id? [c]
-  ((set (keys patterns)) c))
+(defn pattern-id? [c resolvers]
+  ((set (keys resolvers)) c))
 
-(defn parse [pattern]
+(defn parse [pattern resolvers]
   (loop [pattern (seq pattern)
          format-pattern ""
          tags []]
@@ -48,14 +22,14 @@
                   pattern-id (nth pattern (inc close-pos))]
               (if (neg? close-pos)
                 (throw (ex-info "Invalid format" {:pattern pattern :pos (str c1 c2)}))
-                (if (pattern-id? pattern-id)
+                (if (pattern-id? pattern-id resolvers)
                   (recur (nthrest pattern (+ 2 close-pos))
                          (str format-pattern "%s")
                          (conj tags {:id pattern-id
                                      :param (apply str (subvec (vec pattern) 2 close-pos))}))
                   (throw (ex-info "Invalid format" {:pattern pattern :pos (str c1 c2)})))))
 
-            (pattern-id? c2)
+            (pattern-id? c2 resolvers)
             (recur (nthrest pattern 2)
                    (str format-pattern "%s")
                    (conj tags {:id c2}))
@@ -69,11 +43,14 @@
           (recur (rest pattern) (str format-pattern c1) tags)))
       [format-pattern tags])))
 
-(defn formatter [[format-pattern tags]]
+(defn formatter [[format-pattern tags] resolvers]
   (fn [request response options]
-    (let [kss (map #(assoc % :resolver (get patterns (:id %))) tags)]
+    (let [kss (map #(assoc % :resolver (get resolvers (:id %))) tags)]
       (apply format
              format-pattern
              (map (fn [{:keys [resolver param]}]
                     (or (resolver request response param) "-"))
                   kss)))))
+
+(defn create [pattern resolvers]
+  (formatter (parse pattern resolvers) resolvers))
