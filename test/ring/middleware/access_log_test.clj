@@ -42,7 +42,7 @@
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
-      (is (= ":get" @log-entry)))))
+      (is (= "GET" @log-entry)))))
 
 (deftest combine-pattern-test
   (let [handler (wrap-access-log (fn [_] (ok))
@@ -50,4 +50,4 @@
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]
       (handler request)
-      (is (= ":get localhost" @log-entry)))))
+      (is (= "GET localhost" @log-entry)))))

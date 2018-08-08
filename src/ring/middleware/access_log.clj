@@ -4,7 +4,7 @@
 
 (def common "%h %l %u %t \"%r\" %s %b")
 
-(def combined  "%h %l %u %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\"")
+(def combined "%h %l %u %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\"")
 
 (defn log [request response {:keys [formatter] :as options}]
   (log/info (formatter request response options)))
@@ -12,7 +12,7 @@
 (defn wrap-access-log
   ([handler]
    (wrap-access-log handler {}))
-  ([handler {:keys [pattern] :as options}]
+  ([handler {:keys [pattern] :or {pattern combined} :as options}]
    (let [formatter (parser/formatter (parser/parse pattern))]
      (fn
        ([request]
