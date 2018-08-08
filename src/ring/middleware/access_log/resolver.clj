@@ -11,7 +11,10 @@
 
 (defn bytes-sent [_ resp _]
   (if (string? (:body resp))
-    (str (count (:body resp)))
+    (let [cnt (count (:body resp))]
+      (if (pos? cnt)
+        (str cnt)
+        "-"))
     "-"))
 
 (defn remote-host-name [req _ _]
