@@ -83,5 +83,5 @@
 
 (deftest formtter-with-param-test
   (let [log ((formatter (parse "%{Content-Type}i"))
-             {:headers {"Content-Type" "text/html"}} {} {})]
+             {:headers {"content-type" "text/html"}} {} {})]
     (is (= "text/html" log))))
