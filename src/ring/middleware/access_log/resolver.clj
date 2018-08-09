@@ -6,73 +6,73 @@
             [clj-time.local :as l])
   (:import java.util.Locale))
 
-(defn remote-ip-address [req _ _]
-  (get req :remote-addr "-"))
+(defn remote-ip-address [{:keys [request]} _]
+  (get request :remote-addr "-"))
 
-(defn bytes-sent [_ resp _]
-  (if (string? (:body resp))
-    (let [cnt (count (:body resp))]
+(defn bytes-sent [{:keys [response]} _]
+  (if (string? (:body response))
+    (let [cnt (count (:body response))]
       (if (pos? cnt)
         (str cnt)
         "-"))
     "-"))
 
-(defn remote-host-name [req _ _]
-  (get req :remote-addr "-"))
+(defn remote-host-name [{:keys [request]} _]
+  (get request :remote-addr "-"))
 
-(defn request-protocol [req _ _]
-  (:protocol req))
+(defn request-protocol [{:keys [request]} _]
+  (:protocol request))
 
-(defn remote-logical-username [_ _ _]
+(defn remote-logical-username [_ _]
   "-")
 
-(defn request-method [req _ _]
-  (upper-case (name (:request-method req))))
+(defn request-method [{:keys [request]} _]
+  (upper-case (name (:request-method request))))
 
-(defn local-port [req _ _]
-  (:server-port req))
+(defn local-port [{:keys [request]} _]
+  (:server-port request))
 
-(defn query-string [req _ _]
-  (:query-string req))
+(defn query-string [{:keys [request]} _]
+  (:query-string request))
 
-(defn request-first-line [{:keys [request-method uri query-string protocol]} _ _]
+(defn request-first-line [{{:keys [request-method uri query-string protocol]} :request} _]
   (format "%s %s%s %s"
           (upper-case (name request-method))
           uri
           (if query-string (str "?" query-string) "")
           protocol))
 
-(defn response-status-code [_ resp _]
-  (:status resp))
+(defn response-status-code [{:keys [response]} _]
+  (:status response))
 
-(defn date-and-time [_ _ param]
-  (let [fmtr (-> (or param "dd/MMM/Y:HH:MM:SS Z")
+(defn date-and-time [_ pattern-param]
+  (let [fmtr (-> (or pattern-param "dd/MMM/Y:HH:MM:SS Z")
                  f/formatter
                  (with-locale Locale/US)
                  (with-zone (t/default-time-zone)))]
     (format "[%s]" (f/unparse fmtr (l/local-now)))))
 
-(defn remote-user [_ _ _]
+(defn remote-user [_ _]
   "-")
 
-(defn request-url-path [req _ _]
-  (:uri req))
+(defn request-url-path [{:keys [request]} _]
+  (:uri request))
 
-(defn ptime-millis [req _ _]
-  (when-let [request-start-time (-> req :attrs :request-start-time)]
+(defn ptime-millis [{:keys [request]} _]
+  (when-let [request-start-time (-> request :attrs :request-start-time)]
     (- (System/currentTimeMillis) request-start-time)))
 
-(defn ptime-sec [req _ _]
-  (int (/ (ptime-millis req nil nil) 1000)))
+(defn ptime-sec [{:keys [request]} _]
+  (int (/ (ptime-millis request nil nil) 1000)))
 
-(defn current-thread-name [_ _ _]
+(defn current-thread-name [_ _]
   (.getName (Thread/currentThread)))
 
-(defn incoming-header [req _ param]
-  (get-in req [:headers (lower-case param)]))
+(defn incoming-header [{:keys [request]} pattern-param]
+  (get-in request [:headers (lower-case pattern-param)]))
 
-(defn outgoing-header [_ resp param]
-  (get-in resp [:headers (lower-case param)]))
+(defn outgoing-header [{:keys [response]} pattern-param]
+  (get-in response [:headers (lower-case pattern-param)]))
 
-(defn cookie-value [req _ param]
-  (get-in req [:cookies param :value]))
+(defn cookie-value [{:keys [request]} pattern-param]
+  (get-in request [:cookies pattern-param :value]))

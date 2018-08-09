@@ -55,7 +55,7 @@
 (deftest override-pattern-resolver-test
   (let [handler (wrap-access-log (fn [_] (ok))
                                  {:pattern "%m"
-                                  :resolvers {\m (fn [_ _ _]
+                                  :resolvers {\m (fn [_ _ ]
                                                    "ANY")}})
         request (mock/request :get "/")]
     (with-test-logging [#{:info} log-entry]

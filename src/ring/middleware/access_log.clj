@@ -27,22 +27,18 @@
                            \o outgoing-header
                            \c cookie-value})
 
-(defn log [request response {:keys [encoder] :as options}]
-  (log/info (encoder request response options)))
+(defn log [request response {:keys [encoder]}]
+  (log/info (encoder {:request request :response response})))
 
 (defn wrap-access-log
   ([handler]
    (wrap-access-log handler {}))
-  ([handler {:keys [pattern
-                    resolvers]
-             :or {pattern combined
-                  resolvers pattern-resolver-map}
+  ([handler {:keys [pattern resolvers]
+             :or {pattern combined}
              :as options}]
-   (let [encoder (encoder/create pattern resolvers)]
-     (fn
-       ([request]
-        (let [response (handler request)]
-          (log request response (assoc options :encoder encoder))
-          response))
-       ([request respond raise]
-        (handler request respond raise))))))
+   (let [resolvers (merge pattern-resolver-map resolvers)
+         encoder (encoder/create pattern resolvers)]
+     (fn [request]
+       (let [response (handler request)]
+         (log request response (assoc options :encoder encoder))
+         response)))))

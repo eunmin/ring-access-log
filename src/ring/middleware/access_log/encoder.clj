@@ -9,6 +9,11 @@
 (defn pattern-id? [c resolvers]
   ((set (keys resolvers)) c))
 
+(defn map-get [m k]
+  (if-let [v (get m k)]
+    v
+    (throw (ex-info (str "Not found key:" k) m))))
+
 (defn parse [pattern resolvers]
   (loop [pattern (seq pattern)
          format-pattern ""
@@ -21,36 +26,36 @@
             (let [close-pos (.indexOf pattern \})
                   pattern-id (nth pattern (inc close-pos))]
               (if (neg? close-pos)
-                (throw (ex-info "Invalid format" {:pattern pattern :pos (str c1 c2)}))
+                (throw (ex-info "Invalid format (not closed pattern param)" {:pattern pattern :pos (str c1 c2)}))
                 (if (pattern-id? pattern-id resolvers)
                   (recur (nthrest pattern (+ 2 close-pos))
                          (str format-pattern "%s")
                          (conj tags {:id pattern-id
-                                     :param (apply str (subvec (vec pattern) 2 close-pos))}))
+                                     :pattern-param (apply str (subvec (vec pattern) 2 close-pos))
+                                     :resolver (map-get resolvers pattern-id)}))
                   (throw (ex-info "Invalid format" {:pattern pattern :pos (str c1 c2)})))))
 
             (pattern-id? c2 resolvers)
             (recur (nthrest pattern 2)
                    (str format-pattern "%s")
-                   (conj tags {:id c2}))
+                   (conj tags {:id c2
+                               :resolver (map-get resolvers c2)}))
 
             (= c2 \%)
             (recur (nthrest pattern 2)
                    (str format-pattern "%%")
                    tags)
 
-            :else (throw (ex-info "Invalid format" {:pattern pattern :pos (str c1 c2)})))
+            :else (throw (ex-info "Invalid format (missing pattern id)" {:pattern pattern :pos (str c1 c2)})))
           (recur (rest pattern) (str format-pattern c1) tags)))
       [format-pattern tags])))
 
-(defn formatter [[format-pattern tags] resolvers]
-  (fn [request response options]
-    (let [kss (map #(assoc % :resolver (get resolvers (:id %))) tags)]
+(defn create [pattern resolvers]
+  (let [[format-pattern tags] (parse pattern resolvers)]
+    (println format-pattern tags)
+    (fn apply-encoder [data]
       (apply format
              format-pattern
-             (map (fn [{:keys [resolver param]}]
-                    (or (resolver request response param) "-"))
-                  kss)))))
-
-(defn create [pattern resolvers]
-  (formatter (parse pattern resolvers) resolvers))
+             (map (fn [{:keys [resolver pattern-param]}]
+                    (or (str (resolver data pattern-param)) "-"))
+                  tags)))))
